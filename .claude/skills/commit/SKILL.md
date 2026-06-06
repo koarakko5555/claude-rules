@@ -1,4 +1,5 @@
 ---
+name: commit
 description: 変更をステージング・コミットする（メッセージは自動生成）
 allowed-tools:
   - Bash

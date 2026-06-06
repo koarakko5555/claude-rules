@@ -1,6 +1,6 @@
 # claude-rules
 
-Claude Code 用のハーネステンプレート。プロジェクト共通の **開発ルール・スラッシュコマンド・フック** を一式まとめ、`scripts/setup.sh` で任意のリポジトリに展開する。
+Claude Code 用のハーネステンプレート。プロジェクト共通の **開発ルール・スキル・フック** を一式まとめ、`scripts/setup.sh` で任意のリポジトリに展開する。
 
 各プロジェクトで `.claude/` を一から書く代わりに、このテンプレートをコピーして上書き運用する。
 
@@ -13,13 +13,13 @@ Claude Code 用のハーネステンプレート。プロジェクト共通の *
 │   ├── rules/                 # ドメイン固有の規約（CLAUDE.md から参照）
 │   │   ├── coding.md          # コーディング規約（コメント方針・スコープ・セキュリティ）
 │   │   └── git.md             # Git 規約（コミット・ブランチ・PR の切り方）
-│   ├── commands/              # スラッシュコマンド定義
-│   │   ├── commit.md          # /commit  変更をステージング・コミット（メッセージ自動生成）
-│   │   ├── debug.md           # /debug   根本原因を特定して直す（対症療法を禁止）
-│   │   ├── draft.md           # /draft   要件ヒアリング→計画→承認→実装→レビューの一気通貫
-│   │   ├── init.md            # /init    コードベースを解析して CLAUDE.md を初期化
-│   │   ├── refine.md          # /refine  会話を振り返り .claude/ の更新候補を提案
-│   │   └── review.md          # /review  main からの差分をコードレビュー
+│   ├── skills/                # スキル定義（各 <name>/SKILL.md）
+│   │   ├── commit/SKILL.md    # /commit  変更をステージング・コミット（メッセージ自動生成）
+│   │   ├── debug/SKILL.md     # /debug   根本原因を特定して直す（対症療法を禁止）
+│   │   ├── draft/SKILL.md     # /draft   要件ヒアリング→計画→承認→実装→レビューの一気通貫
+│   │   ├── init/SKILL.md      # /init    コードベースを解析して CLAUDE.md を初期化
+│   │   ├── refine/SKILL.md    # /refine  会話を振り返り .claude/ の更新候補を提案
+│   │   └── review/SKILL.md    # /review  main からの差分をコードレビュー
 │   ├── hooks/
 │   │   ├── session-context.sh # SessionStart: 現在の git 状態をコンテキストに注入
 │   │   └── format.sh          # PostToolUse: 編集ファイルを拡張子に応じて自動フォーマット
@@ -77,4 +77,4 @@ CLAUDE_RULES_DIR=/path/to/claude-rules bash /path/to/claude-rules/scripts/setup.
 
 ## カスタマイズ
 
-ルール・コマンド・フックはすべてプレーンな Markdown / シェルスクリプト。プロジェクト固有の方針はこのテンプレート側を編集してから展開するか、展開後に各プロジェクトの `.claude/` を直接編集する。ユーザー個別設定は `.claude/settings.local.json`（gitignore 済み）に置く。
+ルール・スキル・フックはすべてプレーンな Markdown / シェルスクリプト。プロジェクト固有の方針はこのテンプレート側を編集してから展開するか、展開後に各プロジェクトの `.claude/` を直接編集する。ユーザー個別設定は `.claude/settings.local.json`（gitignore 済み）に置く。

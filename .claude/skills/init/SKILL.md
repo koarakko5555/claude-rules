@@ -1,4 +1,5 @@
 ---
+name: init
 description: コードベースを解析して CLAUDE.md を初期化する
 allowed-tools:
   - Bash

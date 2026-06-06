@@ -1,4 +1,5 @@
 ---
+name: review
 description: main ブランチからの差分をコードレビューする
 allowed-tools:
   - Bash

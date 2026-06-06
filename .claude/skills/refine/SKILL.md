@@ -1,4 +1,5 @@
 ---
+name: refine
 description: このセッションの会話を振り返り、.claude/ 配下のドキュメント更新候補を提案する
 allowed-tools:
   - Bash
@@ -42,8 +43,8 @@ allowed-tools:
 | コーディングの好み・禁止事項 | `.claude/rules/coding.md` |
 | Git / ブランチ / PR の運用 | `.claude/rules/git.md` |
 | プロジェクト固有の事実・前提 | `./CLAUDE.md` |
-| 新しい slash command が欲しい | `.claude/commands/<name>.md` (新規) |
-| 既存コマンドの手順変更 | `.claude/commands/<name>.md` |
+| 新しい skill が欲しい | `.claude/skills/<name>/SKILL.md` (新規) |
+| 既存 skill の手順変更 | `.claude/skills/<name>/SKILL.md` |
 | 自動化フック・許可コマンド | `.claude/settings.json` の `permissions.allow` |
 | 既存ファイルに合わない新カテゴリ | `.claude/rules/<新規>.md` (新規) |
 
