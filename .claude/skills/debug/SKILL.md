@@ -1,4 +1,5 @@
 ---
+name: debug
 description: バグの根本原因を特定して直す（対症療法を禁じる）
 allowed-tools:
   - Bash
