@@ -1,0 +1,7 @@
+# このテンプレートリポジトリを使って開発した際に生成されるユーザー固有ファイル
+.claude/plans/*.md
+.claude/plans/completed/
+.claude/settings.local.json
+
+# ハーネスフックの監査ログ（hooks/format.sh などが書き出す可能性）
+/tmp/claude-audit.log

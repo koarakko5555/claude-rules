@@ -1,40 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# テンプレートリポジトリの場所（CLAUDE_RULES_DIR で上書き可）
 RULES_DIR="${CLAUDE_RULES_DIR:-$HOME/claude-rules}"
 TARGET_DIR="$(pwd)/.claude"
 FORCE=false
 
-# 引数パース
 for arg in "$@"; do
   case "$arg" in
     --force|-f) FORCE=true ;;
     --help|-h)
       echo "使い方: setup.sh [--force]"
-      echo "  $RULES_DIR から Claude Code 用ファイルをカレントディレクトリの .claude/ にコピーします。"
-      echo "  CLAUDE.md はカレントディレクトリの内容を解析して自動で埋めます。"
+      echo "  $RULES_DIR/.claude/ をカレントディレクトリの .claude/ にコピーします。"
+      echo "  CLAUDE.md はカレントディレクトリの内容を解析して自動生成します。"
       echo "  --force  既存ファイルを上書きします。"
       exit 0
       ;;
   esac
 done
 
-# コピー元の存在確認
-if [[ ! -d "$RULES_DIR" ]]; then
-  echo "エラー: コピー元ディレクトリが存在しません: $RULES_DIR"
+# コピー元 .claude/ の存在確認
+SRC_CLAUDE="$RULES_DIR/.claude"
+if [[ ! -d "$SRC_CLAUDE" ]]; then
+  echo "エラー: $SRC_CLAUDE が存在しません"
   echo "  CLAUDE_RULES_DIR を設定するか、$HOME/claude-rules を用意してください。"
   exit 1
 fi
 
-echo "コピー元 : $RULES_DIR"
+echo "コピー元 : $SRC_CLAUDE"
 echo "コピー先 : $TARGET_DIR"
 echo ""
 
-mkdir -p "$TARGET_DIR/commands" "$TARGET_DIR/rules" "$TARGET_DIR/hooks" "$TARGET_DIR/plans/completed"
-
 # ---------------- プロジェクト情報の自動検出 ----------------
 
-# package.json などから値を抽出する素朴な JSON 抜き出し
 extract_json_string() {
   local file="$1" key="$2"
   grep -m1 "\"$key\"[[:space:]]*:" "$file" 2>/dev/null \
@@ -114,7 +112,6 @@ detect_top_dirs() {
 }
 
 detect_run_commands() {
-  # package.json scripts（"scripts" ブロック内のキー/値だけを抜く）
   if [[ -f package.json ]]; then
     local scripts
     scripts=$(awk '
@@ -130,7 +127,6 @@ detect_run_commands() {
       return
     fi
   fi
-  # Makefile targets
   if [[ -f Makefile ]]; then
     local targets
     targets=$(grep -E '^[a-zA-Z_-]+:' Makefile 2>/dev/null \
@@ -147,48 +143,35 @@ detect_run_commands() {
 
 # ---------------- コピー処理 ----------------
 
+# .claude/ 全体を rsync 的にコピー（plans/ は除外、フックは実行権限維持）
+mkdir -p "$TARGET_DIR/plans/completed"
+
 copy_file() {
   local src="$1" dst="$2"
   if [[ -e "$dst" && "$FORCE" == false ]]; then
-    echo "  skip  (既存) $(basename "$dst")  — 上書きするには --force"
+    echo "  skip  (既存) ${dst#$(pwd)/}  — 上書きするには --force"
   else
+    mkdir -p "$(dirname "$dst")"
     cp "$src" "$dst"
-    echo "  copy  $dst"
+    echo "  copy  ${dst#$(pwd)/}"
   fi
 }
 
-# settings.json
-[[ -f "$RULES_DIR/settings.json" ]] && copy_file "$RULES_DIR/settings.json" "$TARGET_DIR/settings.json"
+# .claude/ 配下を辿ってコピー（plans/ は除外）
+while IFS= read -r src; do
+  rel="${src#$SRC_CLAUDE/}"
+  [[ "$rel" == plans/* || "$rel" == plans ]] && continue
+  dst="$TARGET_DIR/$rel"
+  copy_file "$src" "$dst"
+done < <(find "$SRC_CLAUDE" -type f)
 
-# commands/
-if [[ -d "$RULES_DIR/commands" ]]; then
-  for f in "$RULES_DIR/commands/"*.md; do
-    [[ -e "$f" ]] || continue
-    copy_file "$f" "$TARGET_DIR/commands/$(basename "$f")"
-  done
-fi
+# フックスクリプトに実行権限
+find "$TARGET_DIR/hooks" -type f -name '*.sh' -exec chmod +x {} \; 2>/dev/null || true
 
-# rules/
-if [[ -d "$RULES_DIR/rules" ]]; then
-  for f in "$RULES_DIR/rules/"*.md; do
-    [[ -e "$f" ]] || continue
-    copy_file "$f" "$TARGET_DIR/rules/$(basename "$f")"
-  done
-fi
-
-# hooks/ — フックスクリプトは実行権限を付けてコピー
-if [[ -d "$RULES_DIR/hooks" ]]; then
-  for f in "$RULES_DIR/hooks/"*.sh; do
-    [[ -e "$f" ]] || continue
-    dst="$TARGET_DIR/hooks/$(basename "$f")"
-    copy_file "$f" "$dst"
-    [[ -f "$dst" ]] && chmod +x "$dst"
-  done
-fi
-
-# CLAUDE.md — 検出値を埋めてから書き出す
+# CLAUDE.md — 検出値を埋めて生成
+CLAUDE_MD_SRC="$RULES_DIR/CLAUDE.md"
 CLAUDE_MD_DST="$(pwd)/CLAUDE.md"
-if [[ -f "$RULES_DIR/CLAUDE.md" ]]; then
+if [[ -f "$CLAUDE_MD_SRC" ]]; then
   if [[ -e "$CLAUDE_MD_DST" && "$FORCE" == false ]]; then
     echo "  skip  (既存) CLAUDE.md  — 上書きするには --force"
   else
@@ -198,7 +181,7 @@ if [[ -f "$RULES_DIR/CLAUDE.md" ]]; then
     top_dirs=$(detect_top_dirs)
     run_commands=$(detect_run_commands)
 
-    template=$(<"$RULES_DIR/CLAUDE.md")
+    template=$(<"$CLAUDE_MD_SRC")
     template="${template//\{\{PROJECT_NAME\}\}/$project_name}"
     template="${template//\{\{PROJECT_DESCRIPTION\}\}/$project_description}"
     template="${template//\{\{STACK\}\}/$stack}"
@@ -206,7 +189,7 @@ if [[ -f "$RULES_DIR/CLAUDE.md" ]]; then
     template="${template//\{\{RUN_COMMANDS\}\}/$run_commands}"
 
     printf '%s\n' "$template" > "$CLAUDE_MD_DST"
-    echo "  gen   $CLAUDE_MD_DST  (project: $project_name, stack: $stack)"
+    echo "  gen   CLAUDE.md  (project: $project_name, stack: $stack)"
   fi
 fi
 
