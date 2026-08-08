@@ -12,6 +12,7 @@ Claude Code 用のハーネステンプレート。プロジェクト共通の *
 ├── .claude/
 │   ├── rules/                 # ドメイン固有の規約（CLAUDE.md から参照）
 │   │   ├── coding.md          # コーディング規約（コメント方針・スコープ・セキュリティ）
+│   │   ├── communication.md   # 返信規約（簡潔さ・スコープ・出力フォーマット）
 │   │   └── git.md             # Git 規約（コミット・ブランチ・PR の切り方）
 │   ├── skills/                # スキル定義（各 <name>/SKILL.md）
 │   │   ├── commit/SKILL.md    # /commit  変更をステージング・コミット（メッセージ自動生成）
@@ -65,6 +66,7 @@ CLAUDE_RULES_DIR=/path/to/claude-rules bash /path/to/claude-rules/scripts/setup.
 
 - **コーディング** (`.claude/rules/coding.md`): コメントは WHY のみ／スコープ厳守（ついでのリファクタ禁止）／後方互換シムを残さない／injection 系を作り込まない。
 - **Git** (`.claude/rules/git.md`): 命令形コミット・件名 ≤72 文字／PR はできる限り細かく（1 PR = 1 論理変更、理想 ≤300 行）／main への force push 禁止／`git add -A` を避ける。
+- **返信** (`.claude/rules/communication.md`): 結論先出し・前置きと末尾要約なし／聞かれたことにのみ答える（提案を勝手に足さない）／箇条書きと表を優先・コードは変更箇所のみ。
 
 ## フックの挙動
 
