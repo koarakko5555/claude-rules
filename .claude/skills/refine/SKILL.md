@@ -1,6 +1,6 @@
 ---
 name: refine
-description: このセッションの会話を振り返り、.claude/ 配下のドキュメント更新候補を提案する
+description: このセッションの会話を振り返り、横断ルール（claude-rules）とこのプロジェクトのルールの更新候補を提案する
 allowed-tools:
   - Bash
   - Read
@@ -8,7 +8,14 @@ allowed-tools:
   - Write
 ---
 
-このセッションの会話履歴を振り返り、`.claude/` 配下のドキュメント（と `CLAUDE.md` / `settings.json`）に反映すべき変更を抽出して提案する。**承認を受けた候補のみ適用する**。
+このセッションの会話履歴を振り返り、反映すべきルールの変更を抽出して提案する。**承認を受けた候補のみ適用する**。
+
+反映先は 2 種類ある。
+
+- **横断ルール** — `~/Project/claude-rules/.claude/rules/`。グローバルの `~/.claude/CLAUDE.md` から `@` で読み込まれ、全プロジェクトに効く。PR 経由で更新する。
+- **プロジェクトルール** — 今いるプロジェクトの `./CLAUDE.md` と `./.claude/`。直接編集する。
+
+以下、`RULES=~/Project/claude-rules` とする。
 
 ---
 
@@ -36,17 +43,37 @@ allowed-tools:
 
 ## フェーズ2: 仕分け
 
-抽出した候補を以下のいずれかに割り当てる:
+### ステップ1: スコープを決める
+
+候補ごとに「横断」か「プロジェクト」かを決める。
+
+- **横断** — このリポジトリの言語・フレームワーク・ドメイン・ディレクトリ構成を知らなくても成り立つもの。返信の仕方、作業の進め方、Git 運用、言語を問わないコーディングの好みなど。
+- **プロジェクト** — このリポジトリのファイル名・コマンド・ライブラリ・ドメイン用語に触れないと書けないもの。
+- 迷ったら **プロジェクト** に寄せる。横断ルールは全プロジェクトに効くため、根拠が 1 プロジェクトの事情だけなら広げない。
+
+### ステップ2: 行き先を決める
+
+**横断**:
 
 | 候補の性質 | 行き先 |
 |---|---|
-| コーディングの好み・禁止事項 | `.claude/rules/coding.md` |
-| Git / ブランチ / PR の運用 | `.claude/rules/git.md` |
+| 返信の書き方 | `$RULES/.claude/rules/communication.md` |
+| 言語を問わないコーディングの好み・禁止事項 | `$RULES/.claude/rules/coding.md` |
+| Git / ブランチ / PR の運用 | `$RULES/.claude/rules/git.md` |
+| 既存 skill の手順変更 | `$RULES/.claude/skills/<name>/SKILL.md` |
+| 既存ファイルに合わない新カテゴリ | `$RULES/.claude/rules/<新規>.md`（新規。`~/.claude/CLAUDE.md` への `@` 追加も候補に含める） |
+
+**プロジェクト**:
+
+| 候補の性質 | 行き先 |
+|---|---|
 | プロジェクト固有の事実・前提 | `./CLAUDE.md` |
-| 新しい skill が欲しい | `.claude/skills/<name>/SKILL.md` (新規) |
-| 既存 skill の手順変更 | `.claude/skills/<name>/SKILL.md` |
-| 自動化フック・許可コマンド | `.claude/settings.json` の `permissions.allow` |
-| 既存ファイルに合わない新カテゴリ | `.claude/rules/<新規>.md` (新規) |
+| このプロジェクトの言語・ドメイン固有の規約 | `./.claude/rules/<name>.md` |
+| このプロジェクト専用の skill | `./.claude/skills/<name>/SKILL.md` |
+| 自動化フック・許可コマンド | `./.claude/settings.json` の `permissions.allow` |
+
+- `./.claude/rules/` に横断ルールと同名のファイル（`communication.md` `coding.md` `git.md` など）がある場合、それは過去にコピーされた古い写しである。そこには追記しない。
+- 今いるプロジェクトが `$RULES` 自身の場合、行き先は横断として扱う。
 
 仕分けが曖昧な候補は **保留** として別枠に出す。勝手にどこかへ押し込まない。
 
@@ -80,7 +107,8 @@ allowed-tools:
 ### 候補 N: <一言サマリ>
 
 **根拠**: <会話のどの部分から来たか。該当発言を短く引用>
-**反映先**: `.claude/rules/coding.md`
+**スコープ**: 横断 / プロジェクト（横断ならその理由を 1 行で）
+**反映先**: `$RULES/.claude/rules/coding.md`
 **操作**: 追記 / 置換 / 新規作成 / 削除
 **変更案**:
 > （置換の場合は before → after、追記の場合は追記する内容、新規作成の場合は全文の要約）
@@ -100,6 +128,25 @@ allowed-tools:
 
 ユーザーから採用番号を受けたら、その候補のみを Edit / Write で適用する。
 
+### 横断の候補
+
+`$RULES` の作業ツリーにはユーザーの作業中の変更があり得るため、worktree で切り離して PR を作る。
+
+```bash
+BR=chore/refine-$(date +%Y%m%d-%H%M)
+WT=$(mktemp -d)/claude-rules
+git -C ~/Project/claude-rules fetch -q origin
+git -C ~/Project/claude-rules worktree add -q -b "$BR" "$WT" origin/main
+```
+
+- `$WT` 配下のファイルを Edit する（`$RULES` 本体は編集しない）。
+- 変更ファイルを指定して `git -C "$WT" add` → コミット → `git -C "$WT" push -u origin "$BR"` → `gh pr create`（`$WT` で実行）。
+- PR 本文には候補ごとに「根拠（会話の引用）/ 横断にした理由 / 変更内容」を書く。根拠の発言をしたプロジェクト名も添える。
+- 最後に `git -C ~/Project/claude-rules worktree remove "$WT"`。
+- `~/.claude/CLAUDE.md` への `@` 追加は、PR がマージされるまで行わない。必要なら報告に「マージ後に追加する」と書く。
+
+### プロジェクトの候補
+
 - 既存ファイルへの追記/置換は Edit を使う（既存内容を尊重）
 - 新規ファイルは Write で作成
 - `settings.json` を更新する場合:
@@ -108,7 +155,8 @@ allowed-tools:
   - 編集後、`node -e "JSON.parse(require('fs').readFileSync('.claude/settings.json','utf8'))"` か `python3 -c "import json; json.load(open('.claude/settings.json'))"` で構文チェック
 
 適用後、以下を1メッセージで報告する:
-- 変更したファイル一覧と各ファイルの追加/削除行数
+- 横断: PR の URL
+- プロジェクト: 変更したファイル一覧と各ファイルの追加/削除行数
 - 適用しなかった候補と理由（ユーザーが「なし」と言った場合を除く）
 
 ---
@@ -116,7 +164,8 @@ allowed-tools:
 ## 厳守事項
 
 - **ユーザー承認なしに `.claude/` 配下と `CLAUDE.md` / `settings.json` を書き換えない**。フェーズ3で必ず止まる。
+- 横断ルールは `$RULES` の main に直接コミット・push しない。必ず PR を作る。
 - 候補は**最大5件**。「全部出す」ではなく重要度で絞る。
-- 既存ルールとの **重複・矛盾** をチェックする（提案前に該当ファイルを Read する）。矛盾する場合は差し替え案として提示し、理由を添える。
+- 既存ルールとの **重複・矛盾** をチェックする（提案前に該当ファイルを Read する）。横断とプロジェクトの両方を確認する。矛盾する場合は差し替え案として提示し、理由を添える。
 - セッション固有の進行状況・todo は対象外。Plan / Todo の領域に踏み込まない。
 - コード変更・実装は一切行わない（`.claude/` 配下のドキュメント更新のみ）。
