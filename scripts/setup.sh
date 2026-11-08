@@ -157,10 +157,10 @@ copy_file() {
   fi
 }
 
-# .claude/ 配下を辿ってコピー（plans/ は除外）
+# .claude/ 配下を辿ってコピー（plans/ と rules/ は除外。rules/ は ~/.claude/CLAUDE.md から全プロジェクト共通で読み込むため、コピーすると古い写しが残る）
 while IFS= read -r src; do
   rel="${src#$SRC_CLAUDE/}"
-  [[ "$rel" == plans/* || "$rel" == plans ]] && continue
+  [[ "$rel" == plans/* || "$rel" == plans || "$rel" == rules/* ]] && continue
   dst="$TARGET_DIR/$rel"
   copy_file "$src" "$dst"
 done < <(find "$SRC_CLAUDE" -type f)
